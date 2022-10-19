@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+<head>
+
+ <meta charset="utf-8">
+ <meta name="description" content="">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>La Mutuelle Générale - Validation email</title>
+
+ <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+ <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+ <!-- Bootstrap -->
+ <!-- Latest compiled and minified CSS -->
+ <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+ <!-- Optional theme -->
+ <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+  <!-- favicon -->
+  <link rel='icon' href='https://lamutuellegenerale--c.eu13.content.force.com/servlet/servlet.ImageServer?id=0152X000006Hf1M&oid=00D20000000C5PZ' type='image/x-icon'/ >
+
+  <style>
+ body {
+  font-family: 'Montserrat', sans-serif;
+  color: #412761
+ }
+  </style>
+ <!-- Latest compiled and minified JavaScript -->
+ <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script> 
+%%[
+  
+  SET @message = "Le lien associé à cette demande est invalide ou il a expiré. Veuillez renouveler la demande."
+  
+  VAR @id_demandeVerification
+  SET @id_demandeVerification = RequestParameter("id_demande_verification")
+  SET @id_demandeVerificationContext = RequestParameter("id_demande_verification_context")
+ set @now = now()
+  set @now_date = FormatDate(@now, "yyyy-MM-ddTHH:mm:ss")
+  set @now_date_Account =  FormatDate(@now, "yyyy-MM-dd")
+ 
+  
+  
+ SET @subKey = AttributeValue("_subscriberkey")
+ SET @success = "False"
+ 
+/* Selection l id de la demande de vérification */
+set @demandeRows = RetrieveSalesforceObjects(
+   "Demande_verification_Email__c",
+   "Status__c",
+   "Id", "=", @id_demandeVerification )
+   
+if RowCount(@demandeRows) == 1 then /* there should only be one row */
+  var @demandeRow, @Status__c
+  set @demandeRow = Row(@demandeRows, 1)
+  set @Status__c = Field(@demandeRow, "Status__c")
+  
+  
+set @subscriberRows = RetrieveSalesforceObjects(
+   "Account",
+   "Id",
+   "PersonContactId", "=", _subscriberKey )
+
+if RowCount(@subscriberRows) == 1 then /* there should only be one row */
+ 
+  set @subscriberRow = Row(@subscriberRows, 1)
+  set @Id = Field(@subscriberRow, "Id")
+  
+endif
+
+IF(NOT EMPTY(@id_demandeVerificationContext)) THEN
+
+  IF (@id_demandeVerificationContext == 'CREATION_EA') THEN 
+   set @raisonValidaton ='BVE implicite'
+  ELSEIF (@id_demandeVerificationContext == 'MISE_A_JOUR_EA') THEN
+   set @raisonValidaton ='BVE explicite'
+  ELSEIF (@id_demandeVerificationContext == 'Mise à jour depuis EOLE') THEN
+   set @raisonValidaton ='BVE explicite'
+    ELSEIF (@id_demandeVerificationContext == 'Annualisation') THEN
+   set @raisonValidaton ='BVE implicite'
+   ELSEIF (@id_demandeVerificationContext == 'Annualisation') THEN
+   set @raisonValidaton ='BVE implicite'
+   ELSEIF (@id_demandeVerificationContext == 'Email capté dans EOLE') THEN
+   set @raisonValidaton ='BVE explicite'
+  ENDIF
+ ENDIF
+
+  
+  
+  
+
+  
+  /* Changement du message selon le statut de la demande de vérification */
+  IF(NOT EMPTY(@Status__c)) THEN
+    IF (@Status__c == 'Expiré') THEN
+    SET @message = "Le lien associé à cette demande a expiré. Veuillez renouveler la demande."
+     
+    ELSEIF (@Status__c == 'Vérifié') THEN
+    SET @message = '<div style="text-align: center;">
+ <span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 30px;">Merci, votre demande a &eacute;t&eacute;</span> <span style="font-size: 30px; color: #b10967">trait&eacute;e.</span></span></div>'
+    SET @success = "True"
+    
+    ELSEIF (@id_demandeVerificationContext == 'Annualisation' ) THEN
+    SET @message = '<div style="text-align: center;">
+ <span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 30px;">Merci, votre demande a &eacute;t&eacute;</span> <span style="font-size: 30px; color: #b10967">trait&eacute;e.</span></span></div>'
+    SET @success = "True"
+    SET @updateRecord = UpdateSingleSalesforceObject(
+          "Demande_verification_Email__c", @id_demandeVerification,
+          "TechStatut__c", "Vérifié",
+          "Date_verification__c", @now_date,
+          "Origine_BVE__c",@raisonValidaton
+          
+         )
+          SET @updateRecordAccount = UpdateSingleSalesforceObject(
+          "Account", @Id,
+          "DateDerniereVerificationEmail__pc", @now_date_Account
+          
+          
+         )
+     
+    ELSE
+   
+    SET @message = '<div style="text-align: center;">
+ <span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 30px;">Merci, votre demande a &eacute;t&eacute;</span> <span style="font-size: 30px; color: #b10967">trait&eacute;e.</span></span></div>'
+    SET @success = "True"
+     SET @updateRecord = UpdateSingleSalesforceObject(
+          "Demande_verification_Email__c", @id_demandeVerification,
+          "TechStatut__c", "Vérifié",
+          "Date_verification__c", @now_date,
+          "Origine_BVE__c",@raisonValidaton
+          
+         )
+          SET @updateRecordAccount = UpdateSingleSalesforceObject(
+          "Account", @Id,
+          "DateDerniereVerificationEmail__pc", @now_date_Account
+          
+          
+         )
+          
+         
+         
+    ENDIF
+   ENDIF
+endif
+]%%
+  
+</head>
+<body>
+<!-- Logo start-->
+<table width="100%" cellspacing="0" cellpadding="0"><tr><td align="center"><a href="https://adherent.lamutuellegenerale.fr/bienvenue" title="Espace Adhérent La Mutuelle Générale" alias="Header_LogoLMG" conversion="false" data-linkto="https://"><img data-assetid="19637" src="https://image.actu.lamutuellegenerale.fr/lib/fe37117075640475771479/m/1/LA_MUTUELLE_GENERALE_Blocmarque_RGB.jpg" alt="La Mutuelle Générale - On va bien ensemble" height="125" width="300" style="display: block; padding: 0px; text-align: center; height: 125px; width: 300px; border: 0px none transparent;"></a></td></tr><p>
+ 
+  </p></table>
+<!-- Logo end-->
+  <!-- padding start-->
+  <table>
+  <tr>
+  <td style="font-size:0px; padding-top:75px;">&nbsp;</td></tr>
+</table>
+  <!-- padding end-->
+  
+  <div style="text-align: center;">
+ <span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 30px;">%%=v(@message)=%%  </span></span></div>
+  
+  <table width="100%">
+  <tr>
+   <td align="center">
+     <br>
+    <hr style="width:50%; border: 1px solid #b10967;">
+   </td>
+  </tr>
+</table>
+  
+ %%[ IF @success ==  "True" THEN ]%%
+  <div style="line-height: 200%; text-align: center;">
+ <br>
+ <span style="font-size:20px;">L'adresse e-mail que vous avez indiqu&eacute;e est maintenant associ&eacute;e &agrave; votre compte.<br>
+ <br>
+ Si vous disposez d'un espace adh&eacute;rent,<b> cette adresse devient votre identifiant de connexion. </b><br>
+ <br>
+ &Agrave; tr&egrave;s bient&ocirc;t,<br>
+ <span style="color:#B10967;"><b>La Mutuelle G&eacute;n&eacute;rale</b></span></span></div>
+  %%[ ENDIF ]%%
+<!-- header start-->
+
+<!-- footer end-->
+ <footer style="position: fixed; width: 100%; left: 0; bottom: 0px; height: 120px; background-color: #e5e5e5; font-size: 12px;">
+  <div id="contenu-footer" style="width: 100%; text-align: center; margin: auto; padding-top:30px;"><span style="color:#58585D;"><a href="https://www.lamutuellegenerale.fr/" style="text-decoration: none;">La Mutuelle Générale </a>&nbsp; &nbsp; &nbsp;| &nbsp;&nbsp; <a href="https://adherent.lamutuellegenerale.fr/bienvenue" style="text-decoration: none;">Espace Adhérent</a></span></div>
+  
+  <div id="contenu-footer" style="width: 100%; text-align: center; margin: auto; padding-top:0px; padding-bottom: 0px;">
+   <a href="https://www.lamutuellegenerale.fr/" target="_blank"><img src="https://image.actu.lamutuellegenerale.fr/lib/fe37117075640475771479/m/2/LMG_BVE_LandingPage_02.png" width="147" height="35"></a>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
+    <span style="color:#58585D; margin-bottom: 10px;"><a href="https://www.lamutuellegenerale.fr/mentions-legales.html" target="_blank" style="text-decoration: none;">Mentions légales</a> &nbsp; &nbsp; |&nbsp; &nbsp;&nbsp; <a href="https://www.lamutuellegenerale.fr/mention-politique-protection-donnees.html" target="_blank" style="text-decoration: none;">Politique de protection des données</a></span>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
+      <a href="https://www.facebook.com/vivezplus/" target="_blank"><img src="https://image.actu.lamutuellegenerale.fr/lib/fe37117075640475771479/m/2/LMG_BVE_LandingPage_03.png" width="20" height="20"></a>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;
+   <a href="https://twitter.com/LaMut_Generale" target="_blank"><img src="https://image.actu.lamutuellegenerale.fr/lib/fe37117075640475771479/m/2/LMG_BVE_LandingPage_04.png" width="20" height="20"></a>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;
+   <a href="https://www.linkedin.com/company/la-mutuelle-g-n-rale/mycompany/" target="_blank"><img src="https://image.actu.lamutuellegenerale.fr/lib/fe37117075640475771479/m/2/LMG_BVE_LandingPage_05.png" width="20" height="20"></a></div>
+ </footer>
+
+<script>(function(a,m,i,g,o,s){o=a.createElement(g);s=a.getElementsByTagName(i)[0];o.src=m.origin+m.pathname+"/_t?eventType=CLOUDPAGESVISIT";o.width=0;o.height=0;o.style.display="none";s.appendChild(o);})(document,window.location,"body","img");</script>
+
+ <script src="https:&#x2F;&#x2F;500008209.collect.igodigital.com&#x2F;collect.js"></script>
+ <script>
+  if (_etmc && typeof _etmc.push === 'function') {
+   _etmc.push(['setOrgId', '500008209']);
+   _etmc.push(['trackPageView']);
+  }
+ </script>
+
+</body>
+</html>
