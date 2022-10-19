@@ -28,6 +28,7 @@
 %%[
   
   SET @message = "Le lien associé à cette demande est invalide ou il a expiré. Veuillez renouveler la demande."
+  @set test ="Inan"
   
   VAR @id_demandeVerification
   SET @id_demandeVerification = RequestParameter("id_demande_verification")
@@ -62,6 +63,8 @@ if RowCount(@subscriberRows) == 1 then /* there should only be one row */
  
   set @subscriberRow = Row(@subscriberRows, 1)
   set @Id = Field(@subscriberRow, "Id")
+    set @Id = Field(@subscriberRow, "Id")
+
   
 endif
 
